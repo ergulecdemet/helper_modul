@@ -4,6 +4,7 @@ import 'package:connectivity/connectivity/connectivity_management.dart';
 import 'package:connectivity/const/size_config.dart';
 import 'package:connectivity/const/space.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class NoNetworkWidget extends StatefulWidget {
   const NoNetworkWidget({super.key});
@@ -15,46 +16,57 @@ class NoNetworkWidget extends StatefulWidget {
 class _NoNetworkWidgetState extends State<NoNetworkWidget> with StateMixin {
   late final INetworkChangeManager _networkChange;
   NetworkResult? _networkResult;
+
   @override
   void initState() {
     super.initState();
     _networkChange = NetworkChangeManager();
 
-    waitForScreen(() {
-      _networkChange.handleNetworkChange((result) {
-        _updateView(result);
+    _networkChange.checkNetworkFirstTime().then((value) {
+      checkInternetConnection(value);
+      print(value);
+    });
+
+    Timer.periodic(const Duration(seconds: 5), (timer) async {
+      debugPrint("internet kontrol ediliyor...");
+      await _networkChange.checkNetworkFirstTime().then((value) {
+        checkInternetConnection(value);
       });
     });
   }
 
-  Future<void> fetchFirstResult() async {
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-      final result = await _networkChange.checkNetworkFirstTime();
-      _updateView(result);
-    });
-  }
-
-  void _updateView(NetworkResult result) async {
-    debugPrint(result.toString());
-    setState(() {
-      _networkResult = result;
-    });
+  Future<void> checkInternetConnection(NetworkResult result) async {
+    const String urlToCheck =
+        'https://visit.gaziantep.bel.tr'; //You can be change and put your url.
     try {
-      await InternetAddress.lookup('visit.gaziantep.bel.tr')
+      final response = await http
+          .get(Uri.parse(urlToCheck))
           .timeout(const Duration(milliseconds: 1000));
+      if (response.statusCode == 200) {
+        debugPrint('İnternet erişim var');
+        setState(() {
+          _networkResult = result;
+        });
+      }
+    } on SocketException catch (_) {
+      debugPrint("internet yok");
+      setState(() {
+        _networkResult = NetworkResult.off;
+      });
     } on TimeoutException catch (_) {
-      print("internet yavaş");
+      debugPrint("internet yavaş");
       setState(() {
         _networkResult = NetworkResult.on;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("İnternetiniz çok yavaş."),
+          content: const Text(
+              "İnternetiniz çok yavaş. Lütfen bağlantınızı güçlendiriniz."),
           backgroundColor: Colors.red,
         ),
       );
-    } on SocketException catch (_) {
-      print("internet yok");
+    } catch (e) {
+      debugPrint("internet kontrolü cath de. $e");
       setState(() {
         _networkResult = NetworkResult.off;
       });
