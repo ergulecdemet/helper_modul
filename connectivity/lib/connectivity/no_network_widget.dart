@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:connectivity/connectivity/connectivity_management.dart';
 import 'package:connectivity/const/size_config.dart';
 import 'package:connectivity/const/space.dart';
 import 'package:flutter/material.dart';
+
 class NoNetworkWidget extends StatefulWidget {
   const NoNetworkWidget({super.key});
 
@@ -19,7 +22,6 @@ class _NoNetworkWidgetState extends State<NoNetworkWidget> with StateMixin {
 
     waitForScreen(() {
       _networkChange.handleNetworkChange((result) {
-        print(result);
         _updateView(result);
       });
     });
@@ -32,10 +34,31 @@ class _NoNetworkWidgetState extends State<NoNetworkWidget> with StateMixin {
     });
   }
 
-  void _updateView(NetworkResult result) {
+  void _updateView(NetworkResult result) async {
+    debugPrint(result.toString());
     setState(() {
       _networkResult = result;
     });
+    try {
+      await InternetAddress.lookup('visit.gaziantep.bel.tr')
+          .timeout(const Duration(milliseconds: 1000));
+    } on TimeoutException catch (_) {
+      print("internet yavaş");
+      setState(() {
+        _networkResult = NetworkResult.on;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("İnternetiniz çok yavaş."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } on SocketException catch (_) {
+      print("internet yok");
+      setState(() {
+        _networkResult = NetworkResult.off;
+      });
+    }
   }
 
   @override
@@ -62,24 +85,24 @@ class _NoNetworkWidgetState extends State<NoNetworkWidget> with StateMixin {
       width: sizeConfig.scrWidth(context),
       color: Colors.white,
       child: Padding(
-        padding: EdgeInsets.symmetric(
-            horizontal: sizeConfig.widthSize(context, 20)),
+        padding:
+            EdgeInsets.symmetric(horizontal: sizeConfig.widthSize(context, 20)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-            "İntenet Bağlantısı Yok",
+              "İntenet Bağlantısı Yok",
               textAlign: TextAlign.center,
-               style: TextStyle(
+              style: TextStyle(
                 fontSize: sizeConfig.sp(context, 20),
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
-             "Lütfen internet bağlantınızı kontrol ediniz.",
+              "Lütfen internet bağlantınızı kontrol ediniz.",
               textAlign: TextAlign.center,
-             style: TextStyle(
+              style: TextStyle(
                 fontSize: sizeConfig.sp(context, 20),
               ),
             ),
@@ -91,7 +114,7 @@ class _NoNetworkWidgetState extends State<NoNetworkWidget> with StateMixin {
                 child: Icon(
                   Icons.wifi_off_sharp,
                   size: sizeConfig.heightSize(context, 100),
-                  color:Colors.grey,
+                  color: Colors.grey,
                 ),
               ),
             ),
